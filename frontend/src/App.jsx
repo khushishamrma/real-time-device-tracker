@@ -1,7 +1,6 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from './store/auth.store.js';
-import Sidebar from "./components/Sidebar/Layout.jsx";
+import Layout from "./components/Sidebar/Layout.jsx";
 import Dashboard from './pages/Dashboard.jsx';
 import Tracking from './pages/TrackingPage.jsx';
 import History from './pages/HistoryPage.jsx';
@@ -9,17 +8,6 @@ import Geofences from './pages/GeofencePage.jsx';
 import Alerts from './pages/Alerts.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
-
-function AppLayout() {
-  return (
-    <div className="flex h-screen overflow-hidden bg-surface-950">
-      <Sidebar />
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Outlet />
-      </main>
-    </div>
-  );
-}
 
 function PrivateRoute() {
   const { token } = useAuthStore();
@@ -41,7 +29,7 @@ export default function App() {
           <Route path="/register" element={<Register />} />
         </Route>
         <Route element={<PrivateRoute />}>
-          <Route element={<AppLayout />}>
+          <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/tracking" element={<Tracking />} />
             <Route path="/history" element={<History />} />
