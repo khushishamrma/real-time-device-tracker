@@ -60,6 +60,9 @@ export default function HistoryPage() {
           <Calendar size={14} />
           {loading ? 'Loading...' : 'Load Replay'}
         </button>
+        {points.length > 0 && (
+          <span className="text-xs text-slate-500 self-center">{points.length} points loaded</span>
+        )}
       </motion.div>
 
       {/* Replay map */}
@@ -76,12 +79,6 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
-
-      {points.length > 0 && (
-        <div className="flex-shrink-0 text-xs text-slate-500">
-          {points.length} location points loaded
-        </div>
-      )}
     </div>
   );
 }

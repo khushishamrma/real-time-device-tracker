@@ -6,6 +6,7 @@ import Tracking from './pages/TrackingPage.jsx';
 import History from './pages/HistoryPage.jsx';
 import Geofences from './pages/GeofencePage.jsx';
 import Alerts from './pages/Alerts.jsx';
+import Profile from './pages/ProfilePage.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/history" element={<History />} />
             <Route path="/geofences" element={<Geofences />} />
             <Route path="/alerts" element={<Alerts />} />
+            <Route path="/profile" element={<Profile />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

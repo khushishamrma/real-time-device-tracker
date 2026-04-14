@@ -49,7 +49,11 @@ export default function ReplayMap({ points }) {
     <div className="flex flex-col h-full gap-4">
       <div className="flex-1 rounded-xl overflow-hidden" style={{ minHeight: 300 }}>
         <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%', background: '#050812' }}>
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" maxZoom={19} />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            maxZoom={19}
+          />
           {points.length > 0 && <FitBounds points={points} />}
           {trail.length > 1 && (
             <Polyline positions={trail} pathOptions={{ color: '#22d3ee', weight: 2.5, opacity: 0.9 }} />
@@ -99,9 +103,9 @@ export default function ReplayMap({ points }) {
               { label: 'Speed', value: `${(currentPoint.speed || 0).toFixed(1)} km/h` },
               { label: 'Time', value: new Date(currentPoint.timestamp).toLocaleTimeString() },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-surface-700 rounded-lg px-2.5 py-2">
-                <p className="text-[10px] text-slate-600">{label}</p>
-                <p className="text-xs font-mono text-slate-300 truncate">{value}</p>
+              <div key={label} className="bg-surface-700 rounded-lg px-2.5 py-2 overflow-hidden">
+                <p className="text-[10px] text-slate-600 mb-0.5">{label}</p>
+                <p className="text-xs font-mono text-slate-300 break-all leading-snug">{value}</p>
               </div>
             ))}
           </div>

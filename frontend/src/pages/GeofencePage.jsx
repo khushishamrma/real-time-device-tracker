@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Plus, Trash2, MapPin, X, Loader2, Target } from 'lucide-react';
-import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
+import { Shield, Plus, Trash2, MapPin, X, Loader2, Target, Navigation } from 'lucide-react';
+import { MapContainer, TileLayer, Circle, useMapEvents, useMap } from 'react-leaflet';
 import api from '../services/api';
 import { useDeviceStore } from '../store/device.store';
 
 function ClickMarker({ onPick }) {
   useMapEvents({ click: (e) => onPick(e.latlng) });
+  return null;
+}
+
+function FlyToCenter({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) map.flyTo([center.lat, center.lng], 15, { duration: 1.2 });
+  }, [center?.lat, center?.lng]);
   return null;
 }
 
@@ -16,6 +24,7 @@ export default function GeofencePage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: '', radius: 500, devices: [], color: '#8b5cf6', center: null });
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
 
   const fetchFences = async () => {
@@ -110,7 +119,11 @@ export default function GeofencePage() {
       {/* Map */}
       <div className="flex-1 relative">
         <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%', background: '#050812' }}>
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" maxZoom={19} />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            maxZoom={19}
+          />
           {fences.filter(f => f.center).map((fence) => (
             <Circle key={fence._id}
               center={[fence.center.lat, fence.center.lng]}
@@ -123,6 +136,7 @@ export default function GeofencePage() {
               pathOptions={{ color: form.color, fillColor: form.color, fillOpacity: 0.12, weight: 1.5, dashArray: '6 4' }} />
           )}
           {showModal && <ClickMarker onPick={(ll) => setForm(f => ({ ...f, center: { lat: ll.lat, lng: ll.lng } }))} />}
+          {showModal && form.center && <FlyToCenter center={form.center} />}
         </MapContainer>
 
         {showModal && (
@@ -132,11 +146,29 @@ export default function GeofencePage() {
               <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-slate-300 transition-colors"><X size={16} /></button>
             </div>
             {!form.center && (
-              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-brand-500/10 border border-brand-500/20 mb-4">
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-brand-500/10 border border-brand-500/20 mb-3">
                 <MapPin size={13} className="text-brand-400 flex-shrink-0" />
                 <p className="text-xs text-brand-300">Click on the map to place the center</p>
               </div>
             )}
+            <button type="button" disabled={locating}
+              onClick={() => {
+                if (!navigator.geolocation) { setError('Geolocation not supported'); return; }
+                setLocating(true);
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    setForm(f => ({ ...f, center: { lat: pos.coords.latitude, lng: pos.coords.longitude } }));
+                    setLocating(false);
+                  },
+                  (err) => { setError('Location access denied'); setLocating(false); },
+                  { enableHighAccuracy: true, timeout: 10000 }
+                );
+              }}
+              className="w-full flex items-center justify-center gap-2 mb-3 py-2 rounded-lg bg-surface-700 hover:bg-surface-600 border border-surface-600 text-xs font-medium text-slate-300 hover:text-white transition-colors disabled:opacity-50">
+              {locating
+                ? <><Loader2 size={13} className="animate-spin" /> Getting location...</>
+                : <><Navigation size={13} /> Use My Location</>}
+            </button>
             {form.center && (
               <p className="text-xs text-emerald-400 mb-3 font-mono">
                 Center: {form.center.lat.toFixed(4)}, {form.center.lng.toFixed(4)}

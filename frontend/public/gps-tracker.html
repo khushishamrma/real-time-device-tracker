@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Trackr GPS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial; background: #050812; color: white; 
+           min-height: 100vh; display: flex; align-items: center; 
+           justify-content: center; padding: 20px; }
+    .card { background: #0a1628; border: 1px solid #1e3a5f; 
+            border-radius: 16px; padding: 28px; width: 100%; max-width: 400px; }
+    h2 { color: #22d3ee; margin-bottom: 6px; font-size: 22px; }
+    p { color: #64748b; font-size: 13px; margin-bottom: 24px; }
+    label { display: block; color: #94a3b8; font-size: 12px; 
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px; background: #050812; 
+            border: 1px solid #1e3a5f; border-radius: 8px; color: white; 
+            font-size: 13px; margin-bottom: 20px; }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; 
+           font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn-start { background: #0891b2; color: white; }
+    .btn-start:hover { background: #22d3ee; color: #050812; }
+    .btn-stop  { background: #1e2a45; color: #ef4444; margin-top: 10px; }
+    .btn-stop:hover  { background: #ef444420; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status { display: flex; align-items: center; gap: 10px; 
+              padding: 14px; border-radius: 10px; margin: 16px 0; 
+              background: #0f1629; border: 1px solid #1e3a5f; font-size: 14px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot.green { background: #10b981; box-shadow: 0 0 8px #10b981; 
+                 animation: pulse 1.5s infinite; }
+    .dot.gray  { background: #475569; }
+    .dot.amber { background: #f59e0b; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .info-row { display: flex; justify-content: space-between; 
+                padding: 8px 0; border-bottom: 1px solid #1e2a45; font-size: 13px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #64748b; }
+    .info-val { color: #e2e8f0; font-family: monospace; }
+    .info-box { background: #0f1629; border: 1px solid #1e3a5f; 
+                border-radius: 10px; padding: 14px; margin-top: 14px; }
+    .hidden { display: none; }
+    .alert { background: #ef444415; border: 1px solid #ef4444; 
+             border-radius: 8px; padding: 10px 14px; color: #ef4444; 
+             font-size: 13px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h2>📡 Trackr Device</h2>
+  <p>Connect your phone as a real GPS device</p>
+
+  <div id="setup">
+    <label>Device Key (from dashboard)</label>
+    <input id="keyInput" placeholder="Paste your device key here..." />
+    <button class="btn btn-start" onclick="startTracking()">
+      🟢 Start Tracking
+    </button>
+  </div>
+
+  <div id="tracker" class="hidden">
+    <div class="status">
+      <div class="dot" id="dot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">Latitude</span>
+        <span class="info-val" id="lat">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Longitude</span>
+        <span class="info-val" id="lng">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Accuracy</span>
+        <span class="info-val" id="acc">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Speed</span>
+        <span class="info-val" id="spd">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Updates sent</span>
+        <span class="info-val" id="count">0</span>
+      </div>
+    </div>
+
+    <div id="errBox" class="alert hidden"></div>
+
+    <button class="btn btn-stop" onclick="stopTracking()">
+      ⏹ Stop Tracking
+    </button>
+  </div>
+</div>
+
+<script>
+  let socket = null;
+  let watchId = null;
+  let count = 0;
+
+  function setStatus(text, color) {
+    document.getElementById('statusText').textContent = text;
+    const dot = document.getElementById('dot');
+    dot.className = 'dot ' + color;
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('errBox');
+    box.textContent = '⚠️ ' + msg;
+    box.classList.remove('hidden');
+  }
+
+  function startTracking() {
+    const key = document.getElementById('keyInput').value.trim();
+    if (!key) { alert('Paste your device key first!'); return; }
+
+    document.getElementById('setup').classList.add('hidden');
+    document.getElementById('tracker').classList.remove('hidden');
+    setStatus('Connecting to server...', 'amber');
+
+    // Connect directly to the backend (port 5000) on the same host
+    const backendUrl = window.location.hostname + ':5000';
+    socket = io('//' + backendUrl, {
+      auth: { deviceKey: key },
+      transports: ['websocket', 'polling']
+    });
+
+    socket.on('connect', () => {
+      setStatus('Connected — waiting for GPS...', 'amber');
+      startGPS();
+    });
+
+    socket.on('disconnect', () => {
+      setStatus('Disconnected', 'gray');
+    });
+
+    socket.on('connect_error', (err) => {
+      setStatus('Connection failed', 'gray');
+      showError(err.message);
+    });
+  }
+
+  function startGPS() {
+    if (!navigator.geolocation) {
+      showError('GPS not supported on this browser');
+      return;
+    }
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, speed, accuracy, altitude, heading } = pos.coords;
+        count++;
+
+        socket.emit('location:update', {
+          lat: latitude,
+          lng: longitude,
+          speed: speed || 0,
+          accuracy: accuracy || 0,
+          altitude: altitude || 0,
+          heading: heading || 0
+        });
+
+        document.getElementById('lat').textContent   = latitude.toFixed(6);
+        document.getElementById('lng').textContent   = longitude.toFixed(6);
+        document.getElementById('acc').textContent   = '±' + accuracy.toFixed(0) + 'm';
+        document.getElementById('spd').textContent   = speed ? (speed * 3.6).toFixed(1) + ' km/h' : '0 km/h';
+        document.getElementById('count').textContent = count;
+
+        setStatus('Live — sending real GPS', 'green');
+      },
+      (err) => {
+        const msgs = {
+          1: 'Location permission denied — allow it in browser settings',
+          2: 'GPS signal not available — go outdoors',
+          3: 'GPS timeout — try again'
+        };
+        showError(msgs[err.code] || err.message);
+        setStatus('GPS error', 'gray');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
+  }
+
+  function stopTracking() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    if (socket) socket.disconnect();
+    document.getElementById('setup').classList.remove('hidden');
+    document.getElementById('tracker').classList.add('hidden');
+    count = 0;
+  }
+</script>
+</body>
+</html>
